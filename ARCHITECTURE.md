@@ -2,7 +2,7 @@
 
 ## Overview
 
-FlashScalper is a crypto scalping bot with agent-based decision making. Uses structured prompts for trade confirmation.
+FlashScalper is a cryptocurrency scalping bot.
 
 ## System Architecture
 

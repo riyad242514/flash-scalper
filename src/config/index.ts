@@ -218,10 +218,10 @@ export function loadScalperConfig(): ScalperConfig {
     // Signal Requirements - STRICT FILTERING FOR BETTER WIN RATE
     // Note: minIvishXConfidence kept for compatibility but IVISHX integration not implemented
     minIvishXConfidence: getEnvNumber('SCALPER_MIN_IVISHX_CONFIDENCE', 5),
-    minCombinedConfidence: getEnvNumber('SCALPER_MIN_COMBINED_CONFIDENCE', 55), // BALANCED: 55% (was 60%) - allow more trades
+    minCombinedConfidence: getEnvNumber('SCALPER_MIN_COMBINED_CONFIDENCE', 58), // BALANCED: 58% - quality signals while allowing trades
     requireLLMAgreement: getEnvBoolean('SCALPER_REQUIRE_LLM_AGREEMENT', false),
-    minConfidenceWithoutLLM: getEnvNumber('SCALPER_MIN_CONFIDENCE_WITHOUT_LLM', 50), // BALANCED: 50% (was 55%) - more opportunities
-    minScoreForSignal: getEnvNumber('SCALPER_MIN_SCORE', 55), // BALANCED: 55pts (was 60) - allow more signals
+    minConfidenceWithoutLLM: getEnvNumber('SCALPER_MIN_CONFIDENCE_WITHOUT_LLM', 50), // BALANCED: 50% - allows signals at 42-45%
+    minScoreForSignal: getEnvNumber('SCALPER_MIN_SCORE', 45), // BALANCED: 45pts - allows stronger signals through
     
     // Dynamic Position Sizing
     dynamicPositionSizing: getEnvBoolean('SCALPER_DYNAMIC_POSITION_SIZING', true),
@@ -241,7 +241,7 @@ export function loadScalperConfig(): ScalperConfig {
     minMomentum: getEnvNumber('SCALPER_MIN_MOMENTUM', 0.001), // FIXED: Was 0.2, too strict - allow tiny momentum
     maxMomentum: getEnvNumber('SCALPER_MAX_MOMENTUM', 3.0),
     volumePeriod: getEnvNumber('SCALPER_VOLUME_PERIOD', 27),
-    minVolumeRatio: getEnvNumber('SCALPER_MIN_VOLUME_RATIO', 0.1), // LOWERED: 10% of average - volume check was too strict
+    minVolumeRatio: getEnvNumber('SCALPER_MIN_VOLUME_RATIO', 0.5), // BALANCED: 50% of average - markets rarely sustain 80%
     trendSMAFast: getEnvNumber('SCALPER_TREND_SMA_FAST', 10),
     trendSMASlow: getEnvNumber('SCALPER_TREND_SMA_SLOW', 20),
 

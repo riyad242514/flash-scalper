@@ -102,6 +102,15 @@ export function canOpenPosition(
   estimatedMargin: number,
   config: ScalperConfig
 ): { allowed: boolean; reason?: string } {
+  // Check minimum equity (need at least $10 to trade)
+  const minEquity = 10;
+  if (equity < minEquity) {
+    return {
+      allowed: false,
+      reason: `Insufficient equity ($${equity.toFixed(2)} < $${minEquity} minimum)`,
+    };
+  }
+
   // Check max positions
   if (positionCount >= config.maxPositions) {
     return { allowed: false, reason: `Max positions reached (${positionCount}/${config.maxPositions})` };
@@ -109,10 +118,17 @@ export function canOpenPosition(
 
   // Check max exposure
   const maxExposure = (equity * config.maxExposurePercent) / 100;
+  if (maxExposure < minEquity) {
+    return {
+      allowed: false,
+      reason: `Max exposure too low ($${maxExposure.toFixed(2)} < $${minEquity} minimum). Equity: $${equity.toFixed(2)}, Exposure %: ${config.maxExposurePercent}%`,
+    };
+  }
+
   if (currentExposure + estimatedMargin > maxExposure) {
     return {
       allowed: false,
-      reason: `Exposure limit (${(currentExposure + estimatedMargin).toFixed(2)} > ${maxExposure.toFixed(2)})`,
+      reason: `Exposure limit ($${(currentExposure + estimatedMargin).toFixed(2)} > $${maxExposure.toFixed(2)}). Current: $${currentExposure.toFixed(2)}, New: $${estimatedMargin.toFixed(2)}, Max: $${maxExposure.toFixed(2)} (${config.maxExposurePercent}% of $${equity.toFixed(2)})`,
     };
   }
 

@@ -117,7 +117,7 @@ async function initializeState(): Promise<ScalperState> {
     logger.warn({ error: error.message }, 'Failed to initialize memory system - continuing without it');
   }
 
-  return {
+  const initialState: ScalperState = {
     agentId: AGENT_ID,
     userId: USER_ID,
     status: 'running',
@@ -141,6 +141,34 @@ async function initializeState(): Promise<ScalperState> {
     artifactManager,
     memoryManager,
   };
+
+  // IMPORT EXISTING POSITIONS ON STARTUP
+  try {
+    logger.info('Importing existing positions from exchange...');
+    const syncResult = await syncPositions(client, initialState.positions, AGENT_ID, scalperConfig);
+    
+    if (syncResult.imported.length > 0) {
+      logger.info({ 
+        imported: syncResult.imported,
+        count: syncResult.imported.length 
+      }, `Imported ${syncResult.imported.length} existing position(s) from exchange`);
+    } else {
+      logger.info({ 
+        totalExchangePositions: syncResult.opened.length + syncResult.synced.length,
+        localPositions: initialState.positions.size
+      }, 'No new positions to import (checking exchange...)');
+    }
+    if (syncResult.closed.length > 0) {
+      logger.info({ closed: syncResult.closed }, 'Positions closed externally');
+    }
+    if (syncResult.synced.length > 0) {
+      logger.info({ synced: syncResult.synced }, 'Positions synced');
+    }
+  } catch (error: any) {
+    logger.warn({ error: error.message }, 'Failed to import existing positions on startup - will retry in main loop');
+  }
+
+  return initialState;
 }
 
 // =============================================================================
@@ -154,10 +182,33 @@ async function runTick(state: ScalperState): Promise<void> {
   try {
     // Check daily reset
     checkDailyReset(state);
+    
+    // Reset adaptive thresholds on daily reset if needed
+    if (state.memoryManager && state.tickCount > 0 && state.tickCount % 28800 === 0) {
+      // Reset every ~24 hours (28800 ticks at 3s interval)
+      const thresholdStats = state.memoryManager.getAdaptiveThresholdStats();
+      if (thresholdStats) {
+        // Reset is handled internally by adaptive thresholds
+        logger.debug({ stats: thresholdStats }, 'Adaptive threshold stats');
+      }
+    }
 
     // Update balance
     const balance = await state.client.getBalance();
     state.equity = balance.balance;
+    
+    // Warn if equity is very low or zero
+    if (state.equity <= 0) {
+      logger.warn(
+        { equity: state.equity, balance: balance.balance, unrealizedPnL: balance.unrealizedPnL },
+        'Equity is zero or negative - trading disabled. Please fund your account.'
+      );
+    } else if (state.equity < 10) {
+      logger.warn(
+        { equity: state.equity, balance: balance.balance },
+        'Equity is very low - minimum $10 required for trading'
+      );
+    }
 
     // Monitor existing positions
     if (state.positions.size > 0) {
@@ -223,7 +274,9 @@ async function runTick(state: ScalperState): Promise<void> {
     if (state.tickCount % statusInterval === 0) {
       const exposure = calculateExposure(state.positions);
       const maxExposure = (state.equity * state.config.maxExposurePercent) / 100;
-      const drawdown = ((state.startingEquity - state.equity) / state.startingEquity) * 100;
+      const drawdown = state.startingEquity > 0 
+        ? ((state.startingEquity - state.equity) / state.startingEquity) * 100 
+        : 0;
       const winRate = state.totalTrades > 0 ? (state.winningTrades / state.totalTrades) * 100 : 0;
 
       logTick(AGENT_ID, {
@@ -276,15 +329,23 @@ async function scanAndExecute(state: ScalperState, currentExposure: number): Pro
 
   // Fetch klines for all symbols
   const klinesMap = new Map<string, any[]>();
+  let skippedWithPosition = 0;
+  let skippedCooldown = 0;
+  let fetchErrors = 0;
+  
   for (const symbol of symbols) {
     // Skip if we already have a position
-    if (state.positions.has(symbol)) continue;
+    if (state.positions.has(symbol)) {
+      skippedWithPosition++;
+      continue;
+    }
     
     // Signal cooldown - don't scan same symbol if we just rejected it recently
     if (state.lastSignalRejection) {
       const lastRejectionTime = state.lastSignalRejection.get(symbol);
       const cooldownMs = 2 * 60 * 1000;
       if (lastRejectionTime && (Date.now() - lastRejectionTime) < cooldownMs) {
+        skippedCooldown++;
         continue;
       }
     }
@@ -295,18 +356,35 @@ async function scanAndExecute(state: ScalperState, currentExposure: number): Pro
         state.config.klineInterval,
         state.config.klineCount
       );
-      klinesMap.set(symbol, klines);
+      if (klines && klines.length > 0) {
+        klinesMap.set(symbol, klines);
+      } else {
+        logger.debug({ symbol }, 'No klines returned for symbol');
+        fetchErrors++;
+      }
     } catch (error: any) {
       // Skip symbols that fail, but log them
       logger.debug({ symbol, error: error.message }, 'Failed to fetch klines for symbol');
+      fetchErrors++;
     }
 
     // Rate limiting
     await sleep(state.config.scanDelayMs || 200);
   }
+  
+  if (klinesMap.size === 0 && symbols.length > 0) {
+    logger.debug({
+      totalSymbols: symbols.length,
+      skippedWithPosition,
+      skippedCooldown,
+      fetchErrors,
+    }, 'No klines fetched - all symbols skipped or failed');
+  }
 
   // Generate signals
   const scanResults = [];
+  const rejectionStats: Record<string, number> = {};
+  
   for (const [symbol, klines] of klinesMap) {
     const coinConfig = state.coinConfigs.get(symbol);
     const result = await generateSignal(symbol, klines, state.config, coinConfig, AGENT_ID, state.memoryManager);
@@ -315,6 +393,32 @@ async function scanAndExecute(state: ScalperState, currentExposure: number): Pro
     // Track rejections for cooldown
     if (result.rejected && result.rejectionReason && state.lastSignalRejection) {
       state.lastSignalRejection.set(symbol, Date.now());
+      
+      // Track rejection reasons for diagnostics
+      const reason = result.rejectionReason.split(':')[0].trim();
+      rejectionStats[reason] = (rejectionStats[reason] || 0) + 1;
+      
+      // Log detailed rejection info for first few symbols
+      if (scanResults.length <= 3) {
+        logger.debug({
+          symbol,
+          direction: result.score.direction,
+          longScore: result.score.longScore,
+          shortScore: result.score.shortScore,
+          totalScore: result.score.totalScore,
+          confidence: result.score.confidence,
+          minScore: state.config.minScoreForSignal,
+          minConfidence: state.config.llmEnabled ? state.config.minCombinedConfidence : state.config.minConfidenceWithoutLLM,
+          rejectionReason: result.rejectionReason,
+        }, `Signal rejected: ${result.rejectionReason}`);
+      }
+    } else if (!result.rejected && result.signal) {
+      logger.info({
+        symbol,
+        direction: result.signal.type,
+        confidence: result.signal.confidence,
+        score: result.score.totalScore,
+      }, `✅ Signal generated: ${symbol} ${result.signal.type} (${result.signal.confidence}% confidence, score: ${result.score.totalScore})`);
     }
   }
 
@@ -322,7 +426,45 @@ async function scanAndExecute(state: ScalperState, currentExposure: number): Pro
   const qualifyingSignals = getQualifyingSignals(scanResults);
 
   if (qualifyingSignals.length === 0) {
-    logger.debug('No qualifying signals found');
+    const rejectedCount = scanResults.filter(r => r.result.rejected).length;
+    const topScores = scanResults
+      .map(r => ({
+        symbol: r.symbol,
+        direction: r.result.score.direction,
+        longScore: r.result.score.longScore,
+        shortScore: r.result.score.shortScore,
+        totalScore: r.result.score.totalScore,
+        confidence: r.result.score.confidence,
+        rejectionReason: r.result.rejectionReason,
+      }))
+      .sort((a, b) => Math.max(b.longScore, b.shortScore) - Math.max(a.longScore, a.shortScore))
+      .slice(0, 5);
+    
+    // Pretty print rejection stats
+    const rejectionSummary = Object.entries(rejectionStats)
+      .map(([reason, count]) => `  • ${reason}: ${count}`)
+      .join('\n');
+    
+    // Pretty print top scores
+    const topScoresSummary = topScores
+      .map(s => {
+        const score = s.direction === 'LONG' ? s.longScore : s.direction === 'SHORT' ? s.shortScore : Math.max(s.longScore, s.shortScore);
+        const reason = s.rejectionReason ? ` (${s.rejectionReason.substring(0, 50)}...)` : '';
+        return `  • ${s.symbol}: ${s.direction} | Score: ${score.toFixed(1)} | Conf: ${s.confidence}%${reason}`;
+      })
+      .join('\n');
+    
+    logger.info({
+      scanned: scanResults.length,
+      rejected: rejectedCount,
+      rejectionStats,
+      topScores: topScores.map(s => ({
+        symbol: s.symbol,
+        direction: s.direction,
+        score: s.direction === 'LONG' ? s.longScore : s.direction === 'SHORT' ? s.shortScore : Math.max(s.longScore, s.shortScore),
+        confidence: s.confidence,
+      })),
+    }, `No qualifying signals found\n  Scanned: ${scanResults.length} symbols | Rejected: ${rejectedCount}\n  Rejection reasons:\n${rejectionSummary}\n  Top candidates:\n${topScoresSummary}`);
     return;
   }
 
@@ -424,7 +566,8 @@ async function scanAndExecute(state: ScalperState, currentExposure: number): Pro
 
   if (result.success && result.position) {
     state.positions.set(signal.symbol, result.position);
-    state.totalTrades++;
+    // Note: totalTrades is incremented when position closes, not when it opens
+    // This ensures accurate win rate calculation (wins/totalTrades)
     state.lastTradeTime = Date.now();
 
     // Store market context for memory system

@@ -1,45 +1,11 @@
 #!/bin/bash
-# Real-time scalper monitoring script
-# Shows trades, positions, P&L, and profits
+# Monitor scalper logs with pretty formatting using pino-pretty
 
-LOG_FILE="/tmp/scalper-run.log"
-PID_FILE="/tmp/scalper.pid"
+LOG_FILE="${1:-/tmp/scalper-monitor.log}"
 
-if [ ! -f "$PID_FILE" ]; then
-  echo "❌ Scalper not running (no PID file)"
-  echo "   Start it with: npm run start:scalper"
-  exit 1
-fi
-
-PID=$(cat "$PID_FILE")
-if ! ps -p $PID > /dev/null 2>&1; then
-  echo "❌ Scalper process not running (PID: $PID)"
-  exit 1
-fi
-
-echo "🚀 Scalper Monitor - Real-time Trading Activity"
-echo "================================================"
-echo "📊 PID: $PID"
-echo "📝 Log: $LOG_FILE"
-echo ""
-echo "Press Ctrl+C to stop monitoring (scalper keeps running)"
+echo "📊 Monitoring scalper logs: $LOG_FILE"
+echo "Press Ctrl+C to stop"
 echo ""
 
-# Monitor for key events
-tail -f "$LOG_FILE" 2>/dev/null | while IFS= read -r line; do
-  # Highlight important events
-  if echo "$line" | grep -qE "Executing.*ORDER|Position opened|Position closed"; then
-    echo -e "\033[1;32m$line\033[0m"  # Green for trades
-  elif echo "$line" | grep -qE "Tick.*Equity|Daily P&L"; then
-    echo -e "\033[1;33m$line\033[0m"  # Yellow for status
-  elif echo "$line" | grep -qE "ERROR|Failed"; then
-    echo -e "\033[1;31m$line\033[0m"  # Red for errors
-  elif echo "$line" | grep -qE "Signal.*LONG|Signal.*SHORT"; then
-    echo -e "\033[1;36m$line\033[0m"  # Cyan for signals
-  elif echo "$line" | grep -qE "Win rate|winningTrades"; then
-    echo -e "\033[1;35m$line\033[0m"  # Magenta for stats
-  else
-    echo "$line"
-  fi
-done
-
+# Use npx to run pino-pretty (works even if not globally installed)
+tail -f "$LOG_FILE" | npx -y pino-pretty --colorize --translateTime 'SYS:standard' --ignore 'pid,hostname' --singleLine false

@@ -6,6 +6,9 @@
 import pino from 'pino';
 import { config } from '../config';
 
+// Check if pretty printing is requested (via env var or development mode)
+const usePretty = config.isDevelopment || process.env.LOG_PRETTY === 'true';
+
 // Create child loggers for different services
 const baseLogger = pino({
   level: config.logLevel,
@@ -17,13 +20,14 @@ const baseLogger = pino({
   formatters: {
     level: (label) => ({ level: label }),
   },
-  ...(config.isDevelopment && {
+  ...(usePretty && {
     transport: {
       target: 'pino-pretty',
       options: {
         colorize: true,
         translateTime: 'SYS:standard',
         ignore: 'pid,hostname',
+        singleLine: false,
       },
     },
   }),
@@ -139,7 +143,7 @@ export function logTick(agentId: string, tick: TickLogEntry) {
       agentId,
       ...tick,
     },
-    `Tick #${tick.tickCount} | Equity: $${tick.equity.toFixed(2)} | Exposure: $${tick.exposure.toFixed(2)}/$${tick.maxExposure.toFixed(0)} | Positions: ${tick.positionCount}/${tick.maxPositions} | Daily P&L: $${tick.dailyPnL >= 0 ? '+' : ''}${tick.dailyPnL.toFixed(2)} | Drawdown: ${tick.drawdown.toFixed(2)}% | Win: ${tick.winRate.toFixed(0)}%`
+    `Tick #${tick.tickCount} | Equity: $${tick.equity.toFixed(2)} | Exposure: $${tick.exposure.toFixed(2)}/$${tick.maxExposure.toFixed(0)} | Positions: ${tick.positionCount}/${tick.maxPositions} | Daily P&L: $${tick.dailyPnL >= 0 ? '+' : ''}${tick.dailyPnL.toFixed(2)} | Drawdown: ${tick.drawdown != null && !isNaN(tick.drawdown) ? tick.drawdown.toFixed(2) : '0.00'}% | Win: ${tick.winRate.toFixed(0)}%`
   );
 }
 

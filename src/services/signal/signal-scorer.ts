@@ -356,13 +356,15 @@ function scoreCandlePattern(
 export function calculateSignalScore(
   indicators: TechnicalIndicators,
   klines: Kline[],
-  config: ScalperConfig
+  config: ScalperConfig,
+  directionThreshold?: number
 ): SignalScore {
   let longScore = 0;
   let shortScore = 0;
   const reasons: string[] = [];
 
   // Core indicators only (EMA, MACD, RSI, Volume, Divergence)
+  // Removed: Bollinger Bands, Stochastic, ROC, Williams %R - redundant with RSI and causing conflicts
   ({ longScore, shortScore } = scoreEMA(indicators, longScore, shortScore, reasons));
   ({ longScore, shortScore } = scoreMACD(indicators, longScore, shortScore, reasons));
   ({ longScore, shortScore } = scoreRSI(indicators, longScore, shortScore, reasons));
@@ -429,14 +431,18 @@ export function calculateSignalScore(
   }
 
   // Determine direction
+  // BALANCED: Quality thresholds that allow trades while maintaining win rate
+  const effectiveMinScore = Math.max(36, config.minScoreForSignal * 0.8); // At least 36, or 80% of configured min
+  const effectiveDirectionThreshold = directionThreshold ?? 1.10; // Use provided threshold or default 10% lead
+  
   let direction: SignalType = 'NONE';
   const scoreDiff = Math.abs(longScore - shortScore);
 
-  if (longScore >= config.minScoreForSignal && longScore > shortScore * 1.1) {
+  if (longScore >= effectiveMinScore && longScore > shortScore * effectiveDirectionThreshold) {
     direction = 'LONG';
-  } else if (shortScore >= config.minScoreForSignal && shortScore > longScore * 1.1) {
+  } else if (shortScore >= effectiveMinScore && shortScore > longScore * effectiveDirectionThreshold) {
     direction = 'SHORT';
-  } else if (Math.max(longScore, shortScore) >= config.minScoreForSignal * 0.8) {
+  } else if (Math.max(longScore, shortScore) >= effectiveMinScore * 0.85) {
     direction = 'WAIT';
   }
 

@@ -83,29 +83,75 @@ export async function generateSignal(
 
   // Get adaptive filter adjustments from memory if enabled
   let adaptiveConfig = config;
+  let directionThreshold = 1.10; // Default direction threshold
+  
   if (memoryManager) {
-    const adjustments = memoryManager.getAdaptiveFilters();
-    adaptiveConfig = {
-      ...config,
-      minCombinedConfidence: adjustments.minCombinedConfidence,
-      minScoreForSignal: adjustments.minScoreForSignal,
-      requireTrendAlignment: adjustments.requireTrendAlignment,
-      requireVolumeConfirmation: adjustments.requireVolumeConfirmation,
-      requireMultiIndicatorConfluence: adjustments.requireMultiIndicatorConfluence,
-      minIndicatorConfluence: adjustments.minIndicatorConfluence,
-      minVolumeSpike: adjustments.minVolumeSpike,
-      minTrendStrength: adjustments.minTrendStrength,
-    };
+    const filterAdjustments = memoryManager.getAdaptiveFilters();
+    
+    // Get adaptive threshold adjustments based on win rate
+    const thresholdAdjustments = memoryManager.getAdaptiveThresholds(config);
+    
+    if (thresholdAdjustments) {
+      // Use adaptive thresholds (win rate based) if available
+      adaptiveConfig = {
+        ...config,
+        minCombinedConfidence: thresholdAdjustments.minCombinedConfidence,
+        minConfidenceWithoutLLM: thresholdAdjustments.minConfidenceWithoutLLM,
+        minScoreForSignal: thresholdAdjustments.minScoreForSignal,
+        minVolumeRatio: thresholdAdjustments.minVolumeRatio,
+        // Also apply filter adjustments
+        requireTrendAlignment: filterAdjustments.requireTrendAlignment,
+        requireVolumeConfirmation: filterAdjustments.requireVolumeConfirmation,
+        requireMultiIndicatorConfluence: filterAdjustments.requireMultiIndicatorConfluence,
+        minIndicatorConfluence: filterAdjustments.minIndicatorConfluence,
+        minVolumeSpike: filterAdjustments.minVolumeSpike,
+        minTrendStrength: filterAdjustments.minTrendStrength,
+      };
+      
+      directionThreshold = thresholdAdjustments.directionThreshold;
+      
+      signalLogger.debug(
+        {
+          symbol,
+          adjustmentReason: thresholdAdjustments.adjustmentReason,
+          adjustedConfidence: thresholdAdjustments.minCombinedConfidence,
+          adjustedScore: thresholdAdjustments.minScoreForSignal,
+        },
+        'Using adaptive thresholds'
+      );
+    } else {
+      // Fall back to filter adjustments only
+      adaptiveConfig = {
+        ...config,
+        minCombinedConfidence: filterAdjustments.minCombinedConfidence,
+        minScoreForSignal: filterAdjustments.minScoreForSignal,
+        requireTrendAlignment: filterAdjustments.requireTrendAlignment,
+        requireVolumeConfirmation: filterAdjustments.requireVolumeConfirmation,
+        requireMultiIndicatorConfluence: filterAdjustments.requireMultiIndicatorConfluence,
+        minIndicatorConfluence: filterAdjustments.minIndicatorConfluence,
+        minVolumeSpike: filterAdjustments.minVolumeSpike,
+        minTrendStrength: filterAdjustments.minTrendStrength,
+      };
+    }
   }
 
-  // Calculate signal score
-  const score = calculateSignalScore(indicators, klines, adaptiveConfig);
+  // Calculate signal score with adaptive direction threshold
+  const score = calculateSignalScore(indicators, klines, adaptiveConfig, directionThreshold);
 
-  // If no clear direction, return early
+  // If no clear direction, return early (LLM won't be called for these)
   if (score.direction === 'NONE' || score.direction === 'WAIT') {
     signalLogger.debug(
-      { symbol, longScore: score.longScore, shortScore: score.shortScore, totalScore: score.totalScore, confidence: score.confidence, minScore: config.minScoreForSignal },
-      `No signal direction (Long: ${score.longScore}, Short: ${score.shortScore}, need ${config.minScoreForSignal}+)`
+      { 
+        symbol, 
+        longScore: score.longScore, 
+        shortScore: score.shortScore, 
+        totalScore: score.totalScore, 
+        confidence: score.confidence, 
+        minScore: config.minScoreForSignal,
+        llmSkipped: true,
+        reason: 'No clear direction - LLM not called'
+      },
+      `No signal direction (Long: ${score.longScore}, Short: ${score.shortScore}, need ${config.minScoreForSignal}+) - LLM skipped`
     );
     return createRejectedResult(
       symbol,
@@ -116,23 +162,28 @@ export async function generateSignal(
     );
   }
 
-  // Block counter-trend SHORTS in uptrend - but allow with strong signals
+  // Block counter-trend SHORTS in uptrend - but allow with decent signals
+  // RELAXED: Use same threshold as min confidence to avoid double-filtering
   const isCounterTrendShort = score.direction === 'SHORT' && indicators.trend === 'UP';
   if (isCounterTrendShort) {
-    // Allow if there's strong divergence OR high confidence (70%+) OR strong bounce
+    const minConfidenceForCounterTrend = adaptiveConfig.llmEnabled
+      ? adaptiveConfig.minCombinedConfidence
+      : adaptiveConfig.minConfidenceWithoutLLM;
+    
+    // Allow if there's strong divergence OR meets confidence threshold OR strong bounce
     const hasStrongSignal = (indicators.divergence?.hasDivergence && indicators.divergence.type === 'bearish') ||
-                            score.confidence >= 75 ||
+                            score.confidence >= minConfidenceForCounterTrend ||
                             (score.bounce && score.bounce.strength >= 15);
     
     if (!hasStrongSignal) {
       signalLogger.debug(
-        { symbol, direction: score.direction, trend: indicators.trend, confidence: score.confidence },
-        `Signal BLOCKED: Counter-trend SHORT in UPTREND (need strong signal)`
+        { symbol, direction: score.direction, trend: indicators.trend, confidence: score.confidence, minConfidence: minConfidenceForCounterTrend },
+        `Signal BLOCKED: Counter-trend SHORT in UPTREND (need ${minConfidenceForCounterTrend}%+ confidence or divergence)`
       );
       recordSignalRejection(agentId, symbol, 'counter_trend_short');
       return createRejectedResult(
         symbol,
-        'Counter-trend SHORT in UPTREND blocked (need divergence/75%+ confidence)',
+        `Counter-trend SHORT in UPTREND blocked (need divergence/${minConfidenceForCounterTrend}%+ confidence)`,
         config,
         indicators,
         score
@@ -180,6 +231,24 @@ export async function generateSignal(
     score.reasons.push(`Momentum override: shorting oversold (RSI ${indicators.rsi.toFixed(0)}) with momentum ${indicators.momentum.toFixed(2)}%`);
   }
 
+  // RSI Quality Filter: Reject signals in extreme RSI zones for better entry quality
+  // This improves win rate by avoiding entries at extremes where reversals are more likely
+  // Relaxed from 20-80 to 15-85 to allow more valid entries
+  if (indicators.rsi < 15 || indicators.rsi > 85) {
+    signalLogger.debug(
+      { symbol, rsi: indicators.rsi, direction: score.direction },
+      `Signal rejected: RSI in extreme zone (${indicators.rsi.toFixed(0)}) - poor entry quality`
+    );
+    recordSignalRejection(agentId, symbol, 'rsi_extreme');
+    return createRejectedResult(
+      symbol,
+      `RSI in extreme zone (${indicators.rsi.toFixed(0)}) - avoid entries at extremes for better win rate`,
+      config,
+      indicators,
+      score
+    );
+  }
+
   // Validate signal against filters (use adaptive filters if available)
   const validation = validateSignal(score, indicators, adaptiveConfig);
   
@@ -215,40 +284,84 @@ export async function generateSignal(
   }
 
   // LLM confirmation (if enabled)
+  // OPTIMIZATION: Only call LLM if signal meets minimum confidence threshold
+  // This prevents unnecessary LLM calls for weak signals that will be rejected anyway
   let llmConfidence = 50;
   let llmAgreed = false;
   let combinedConfidence = score.confidence;
 
   if (adaptiveConfig.llmEnabled && llmAnalyzer.isEnabled()) {
-    const direction = score.direction as 'LONG' | 'SHORT';
-    const llmResult = await analyzeEntry(symbol, direction, indicators, score.reasons, klines);
-
-    llmConfidence = llmResult.confidence;
-    llmAgreed = llmResult.agrees;
-
-    if (llmResult.agrees) {
-      combinedConfidence = Math.min(100, score.confidence + adaptiveConfig.llmConfidenceBoost);
-      score.reasons.push(`LLM agrees (${llmResult.confidence}%)`);
+    // Check if signal meets minimum confidence before calling LLM
+    const minConfidenceForLLM = adaptiveConfig.minConfidenceWithoutLLM || 40; // At least 40% to call LLM
+    if (score.confidence < minConfidenceForLLM) {
+      signalLogger.debug(
+        { 
+          symbol, 
+          direction: score.direction, 
+          confidence: score.confidence, 
+          minConfidence: minConfidenceForLLM,
+          llmSkipped: true,
+          reason: 'Signal confidence too low for LLM analysis'
+        },
+        `Skipping LLM call - signal confidence (${score.confidence}%) below minimum (${minConfidenceForLLM}%)`
+      );
     } else {
-      // LLM disagrees
-      if (adaptiveConfig.requireLLMAgreement) {
-        signalLogger.info(
-          { symbol, direction: score.direction, llmConfidence },
-          `Signal rejected: LLM disagrees (${llmResult.confidence}%)`
-        );
+      const direction = score.direction as 'LONG' | 'SHORT';
+      
+      signalLogger.debug(
+        { symbol, direction, technicalConfidence: score.confidence, reasons: score.reasons.slice(0, 3) },
+        `Calling LLM for ${symbol} ${direction} confirmation...`
+      );
+      
+      const llmResult = await analyzeEntry(symbol, direction, indicators, score.reasons, klines);
 
-        recordSignalRejection(agentId, symbol, 'llm_disagreement');
+      llmConfidence = llmResult.confidence;
+      llmAgreed = llmResult.agrees;
 
-        return {
-          signal: null,
-          analysis: createAnalysis(symbol, indicators, score, llmConfidence),
-          score,
-          validation,
-          rejected: true,
-          rejectionReason: `LLM disagrees (${llmResult.confidence}%): ${llmResult.reason}`,
-        };
+      signalLogger.info(
+        {
+          symbol,
+          direction,
+          technicalConfidence: score.confidence,
+          llmConfidence: llmResult.confidence,
+          llmAgrees: llmResult.agrees,
+          llmAction: llmResult.action,
+          llmReason: llmResult.reason,
+        },
+        `LLM analysis: ${llmResult.action} (${llmResult.confidence}%) - ${llmResult.reason.substring(0, 60)}`
+      );
+
+      if (llmResult.agrees) {
+        combinedConfidence = Math.min(100, score.confidence + adaptiveConfig.llmConfidenceBoost);
+        score.reasons.push(`LLM agrees (${llmResult.confidence}%)`);
+      } else {
+        // LLM disagrees
+        if (adaptiveConfig.requireLLMAgreement) {
+          signalLogger.info(
+            { symbol, direction: score.direction, llmConfidence },
+            `Signal rejected: LLM disagrees (${llmResult.confidence}%)`
+          );
+
+          recordSignalRejection(agentId, symbol, 'llm_disagreement');
+
+          return {
+            signal: null,
+            analysis: createAnalysis(symbol, indicators, score, llmConfidence),
+            score,
+            validation,
+            rejected: true,
+            rejectionReason: `LLM disagrees (${llmResult.confidence}%): ${llmResult.reason}`,
+          };
+        }
+        score.reasons.push(`LLM disagrees (${llmResult.confidence}%)`);
       }
-      score.reasons.push(`LLM disagrees (${llmResult.confidence}%)`);
+    }
+  } else {
+    // Log why LLM is not being used
+    if (!adaptiveConfig.llmEnabled) {
+      signalLogger.debug({ symbol }, 'LLM disabled in config');
+    } else if (!llmAnalyzer.isEnabled()) {
+      signalLogger.debug({ symbol }, 'LLM not enabled (missing API key or disabled)');
     }
   }
 

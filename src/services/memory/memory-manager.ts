@@ -8,6 +8,7 @@ import { MemoryPersistence } from './memory-persistence';
 import { PatternLearner } from './pattern-learner';
 import { MarketRegimeMemory } from './market-regime';
 import { AdaptiveFilters } from './adaptive-filters';
+import { AdaptiveThresholds } from './adaptive-thresholds';
 import { ContextualMemory } from './contextual-memory';
 import { SymbolIntelligenceMemory } from './symbol-intelligence';
 import type { TradeMemory, TradeHistoryConfig } from './trade-history';
@@ -27,6 +28,7 @@ export class MemoryManager {
   private patternLearner: PatternLearner;
   private marketRegime: MarketRegimeMemory;
   private adaptiveFilters: AdaptiveFilters;
+  private adaptiveThresholds: AdaptiveThresholds;
   private contextualMemory: ContextualMemory;
   private symbolIntelligence: SymbolIntelligenceMemory;
   private enabled: boolean;
@@ -50,6 +52,7 @@ export class MemoryManager {
         minVolumeSpike: 0.3,
         minTrendStrength: 0.3,
       });
+      this.adaptiveThresholds = new AdaptiveThresholds();
       this.contextualMemory = new ContextualMemory();
       this.symbolIntelligence = new SymbolIntelligenceMemory();
       return;
@@ -69,6 +72,7 @@ export class MemoryManager {
       minVolumeSpike: 0.3,
       minTrendStrength: 0.3,
     });
+    this.adaptiveThresholds = new AdaptiveThresholds();
     this.contextualMemory = new ContextualMemory();
     this.symbolIntelligence = new SymbolIntelligenceMemory();
   }
@@ -159,6 +163,11 @@ export class MemoryManager {
         isWin,
         tradeMemory.realizedROE
       );
+      
+      // Record trade outcome for adaptive thresholds
+      if (this.adaptiveThresholds) {
+        this.adaptiveThresholds.recordTradeOutcome(isWin);
+      }
     }
 
     this.autoSaveCounter++;
@@ -222,6 +231,28 @@ export class MemoryManager {
     }
 
     return this.adaptiveFilters.getAdjustedFilters();
+  }
+
+  /**
+   * Get adaptive threshold adjustments based on win rate
+   */
+  getAdaptiveThresholds(baseConfig: any) {
+    if (!this.enabled || !this.adaptiveThresholds) {
+      return null;
+    }
+
+    return this.adaptiveThresholds.getAdjustedThresholds(baseConfig);
+  }
+
+  /**
+   * Get adaptive threshold statistics
+   */
+  getAdaptiveThresholdStats() {
+    if (!this.enabled || !this.adaptiveThresholds) {
+      return null;
+    }
+
+    return this.adaptiveThresholds.getStats();
   }
 
   /**

@@ -1,7 +1,7 @@
 {
   "name": "flashscalper",
   "version": "1.0.0",
-  "description": "Crypto scalping bot with agent-based decision making",
+  "description": "Crypto scalping agent",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

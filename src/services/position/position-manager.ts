@@ -339,6 +339,7 @@ export async function syncPositions(
 
   try {
     const exchangePositions = await client.getPositions();
+    positionLogger.debug({ count: exchangePositions.length }, 'Fetched positions from exchange');
     const exchangeSymbols = new Set(exchangePositions.map((p: any) => p.symbol));
     const localSymbols = new Set(localPositions.keys());
 
@@ -440,8 +441,9 @@ export function checkDailyLimits(state: AgentState, config: ScalperConfig): Risk
   }
 
   // Check drawdown
-  const drawdownPercent =
-    ((state.startingEquity - state.equity) / state.startingEquity) * 100;
+  const drawdownPercent = state.startingEquity > 0
+    ? ((state.startingEquity - state.equity) / state.startingEquity) * 100
+    : 0;
 
   if (drawdownPercent >= config.maxDrawdownPercent) {
     return {

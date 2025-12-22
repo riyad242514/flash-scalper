@@ -29,10 +29,25 @@ interface AsterPosition {
   isolatedMargin: string;
 }
 
+interface AsterAsset {
+  asset: string;
+  walletBalance: string;
+  unrealizedProfit?: string;
+  marginBalance?: string;
+  availableBalance?: string;
+  [key: string]: any;
+}
+
 interface AsterAccount {
-  totalWalletBalance: string;
-  availableBalance: string;
-  totalUnrealizedProfit: string;
+  totalWalletBalance?: string;
+  availableBalance?: string;
+  totalUnrealizedProfit?: string;
+  totalEquity?: string; // Some exchanges use this
+  equity?: string; // Alternative field name
+  accountEquity?: string; // Another alternative
+  totalMarginBalance?: string; // Margin balance (wallet + unrealized PnL)
+  assets?: AsterAsset[]; // Assets array - balance might be here
+  [key: string]: any; // Allow additional fields
   positions: AsterPosition[];
 }
 
@@ -204,6 +219,7 @@ export class AsterClient {
   async getAccount(): Promise<AsterAccount> {
     try {
       const account = await this.request<AsterAccount>('GET', '/fapi/v1/account');
+      
       // Load exchange info on first account fetch if not already loaded
       if (!this.exchangeInfoLoaded) {
         this.getExchangeInfo().catch(() => {
@@ -216,6 +232,7 @@ export class AsterClient {
       if (error.message?.includes('fetch failed') || error.message?.includes('404')) {
         executionLogger.warn({ error: error.message }, 'v1 account endpoint failed, trying v2');
         const account = await this.request<AsterAccount>('GET', '/fapi/v2/account');
+        
         // Load exchange info on first account fetch if not already loaded
         if (!this.exchangeInfoLoaded) {
           this.getExchangeInfo().catch(() => {
@@ -463,9 +480,76 @@ export class AsterClient {
    */
   async getBalance(): Promise<{ balance: number; unrealizedPnL: number }> {
     const account = await this.getAccount();
+    
+    // Try multiple field names - different exchanges use different field names
+    let balance = 0;
+    let unrealizedPnL = 0;
+    
+    // Priority 1: Check assets array for USDT/USD balance (most accurate)
+    if (account.assets && Array.isArray(account.assets)) {
+      const usdtAsset = account.assets.find((a: AsterAsset) => 
+        a.asset === 'USDT' || a.asset === 'USD' || a.asset === 'BUSD' || a.asset === 'USDC' || a.asset === 'USDF'
+      );
+      
+      if (usdtAsset) {
+        const marginBal = parseFloat(usdtAsset.marginBalance || '0');
+        const walletBal = parseFloat(usdtAsset.walletBalance || '0');
+        const availBal = parseFloat(usdtAsset.availableBalance || '0');
+        
+        // Use the highest non-zero value (marginBalance includes unrealized PnL, so it's the account equity)
+        const assetBalance = marginBal > 0 ? marginBal : (walletBal > 0 ? walletBal : availBal);
+        
+        if (assetBalance > 0) {
+          balance = assetBalance;
+        }
+        
+        if (usdtAsset.unrealizedProfit) {
+          unrealizedPnL = parseFloat(usdtAsset.unrealizedProfit);
+        }
+      }
+    }
+    
+    // Priority 2: Use totalMarginBalance (wallet + unrealized PnL) - this is the account equity
+    if (balance === 0 && account.totalMarginBalance) {
+      balance = parseFloat(account.totalMarginBalance);
+    }
+    
+    // Priority 3: Try other equity fields
+    if (balance === 0 && account.totalEquity) {
+      balance = parseFloat(account.totalEquity);
+    } else if (balance === 0 && account.accountEquity) {
+      balance = parseFloat(account.accountEquity);
+    } else if (balance === 0 && account.equity) {
+      balance = parseFloat(account.equity);
+    }
+    
+    // Priority 4: Fallback to wallet balance fields
+    if (balance === 0 && account.totalWalletBalance) {
+      balance = parseFloat(account.totalWalletBalance);
+    } else if (balance === 0 && account.availableBalance) {
+      balance = parseFloat(account.availableBalance);
+    }
+    
+    // Get unrealized PnL if not already set
+    if (unrealizedPnL === 0 && account.totalUnrealizedProfit) {
+      unrealizedPnL = parseFloat(account.totalUnrealizedProfit);
+    }
+    
+    if (balance === 0) {
+      executionLogger.error(
+        {
+          totalWalletBalance: account.totalWalletBalance,
+          totalMarginBalance: (account as any).totalMarginBalance,
+          availableBalance: account.availableBalance,
+          usdtAsset: account.assets?.find((a: AsterAsset) => a.asset === 'USDT'),
+        },
+        'Balance is 0 - could not find balance in any known field'
+      );
+    }
+    
     return {
-      balance: parseFloat(account.totalWalletBalance),
-      unrealizedPnL: parseFloat(account.totalUnrealizedProfit),
+      balance,
+      unrealizedPnL,
     };
   }
 
