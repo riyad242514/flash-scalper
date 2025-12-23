@@ -13,7 +13,7 @@ import { updatePosition, syncPositions, checkDailyLimits, checkDailyReset, monit
 import { logger, logTick } from '../utils/logger';
 import { updateAgentMetrics, agentStatus } from '../utils/metrics';
 import type { Position, AgentState, ScalperConfig, CoinConfig } from '../types';
-import { ArtifactManager } from '../services/artifacts/artifact-manager';
+// import { ArtifactManager } from '../services/artifacts/artifact-manager'; // TODO: Re-enable when artifact manager is implemented
 import { loadArtifactConfig } from '../config';
 import { MemoryManager } from '../services/memory/memory-manager';
 import { calculateAllIndicators } from '../services/signal/technical-analysis';
@@ -36,7 +36,7 @@ interface ScalperState extends AgentState {
   coinConfigs: Map<string, CoinConfig>;
   client: AsterClient;
   lastSignalRejection?: Map<string, number>; // Track when signals were rejected to prevent spam
-  artifactManager?: ArtifactManager; // Artifact collection manager
+  // artifactManager?: ArtifactManager; // Artifact collection manager - TODO: Re-enable when implemented
   memoryManager?: MemoryManager; // Memory system for learning
 }
 
@@ -74,7 +74,9 @@ async function initializeState(): Promise<ScalperState> {
   }, 'Scalper initialized');
 
   // Initialize artifact manager if enabled
-  let artifactManager: ArtifactManager | undefined;
+  // let artifactManager: ArtifactManager | undefined;
+  // TODO: Re-enable when ArtifactManager is implemented
+  /*
   try {
     const artifactConfig = loadArtifactConfig();
     if (artifactConfig.enabled) {
@@ -87,6 +89,7 @@ async function initializeState(): Promise<ScalperState> {
   } catch (error: any) {
     logger.warn({ error: error.message }, 'Failed to initialize artifact collection - continuing without it');
   }
+  */
 
   // Initialize memory manager if enabled
   let memoryManager: MemoryManager | undefined;
@@ -138,7 +141,7 @@ async function initializeState(): Promise<ScalperState> {
     lastTradeTime: Date.now(),
     lastTickTime: Date.now(),
     lastSignalRejection: new Map<string, number>(), // Track signal rejections for cooldown
-    artifactManager,
+    // artifactManager, // TODO: Re-enable when implemented
     memoryManager,
   };
 
@@ -641,6 +644,8 @@ async function main(): Promise<void> {
     }
 
     // Finalize artifacts on normal exit
+    // TODO: Re-enable when ArtifactManager is implemented
+    /*
     if (state.artifactManager) {
       try {
         state.artifactManager.cleanup(); // Stop rotation timer
@@ -656,6 +661,7 @@ async function main(): Promise<void> {
         logger.error({ error: error.message }, 'Failed to finalize artifacts on exit');
       }
     }
+    */
 
     // Cleanup
     agentStatus.set({ agent_id: AGENT_ID, status: 'stopped' }, 0);
@@ -685,6 +691,8 @@ async function gracefulShutdown(signal: string): Promise<void> {
       currentState.status = 'stopped';
       
       // Finalize artifacts
+      // TODO: Re-enable when ArtifactManager is implemented
+      /*
       if (currentState.artifactManager) {
         try {
           currentState.artifactManager.cleanup(); // Stop rotation timer
@@ -715,6 +723,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
           logger.error({ error: error.message }, 'Failed to finalize artifacts');
         }
       }
+      */
     }
 
     // Set agent status

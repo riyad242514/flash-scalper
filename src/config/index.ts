@@ -11,6 +11,16 @@ import type { ScalperConfig, CoinConfig } from '../types';
 dotenv.config();
 
 // =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+function getEnvBoolean(key: string, defaultVal: boolean): boolean {
+  const val = process.env[key];
+  if (!val) return defaultVal;
+  return val.toLowerCase() === 'true' || val === '1';
+}
+
+// =============================================================================
 // ENVIRONMENT SCHEMA VALIDATION
 // =============================================================================
 
@@ -27,10 +37,17 @@ const envSchema = z.object({
   JWT_SECRET: z.string().default('change-this-in-production'),
   JWT_EXPIRES_IN: z.string().default('24h'),
 
-  // Exchange
+  // Exchange - Aster
   ASTER_API_KEY: z.string().optional(),
   ASTER_SECRET_KEY: z.string().optional(),
   ASTER_BASE_URL: z.string().default('https://fapi.asterdex.com'),
+
+  // Exchange - Paradex
+  PARADEX_ENABLED: z.string().default('false'),
+  PARADEX_ENVIRONMENT: z.string().default('testnet'),
+  PARADEX_PRIVATE_KEY: z.string().optional(),
+  PARADEX_API_BASE_URL: z.string().default('https://api.testnet.paradex.trade'),
+  PARADEX_WS_BASE_URL: z.string().default('wss://ws.api.testnet.paradex.trade'),
 
   // LLM
   OPENROUTER_API_KEY: z.string().optional(),
@@ -104,6 +121,15 @@ export const config = {
     baseUrl: env.ASTER_BASE_URL,
   },
 
+  // Paradex
+  paradex: {
+    enabled: getEnvBoolean('PARADEX_ENABLED', false),
+    environment: (process.env.PARADEX_ENVIRONMENT || 'testnet') as 'testnet' | 'prod',
+    privateKey: process.env.PARADEX_PRIVATE_KEY || '',
+    apiBaseUrl: process.env.PARADEX_API_BASE_URL || 'https://api.testnet.paradex.trade',
+    wsBaseUrl: process.env.PARADEX_WS_BASE_URL || 'wss://ws.api.testnet.paradex.trade',
+  },
+
   // LLM
   llm: {
     enabled: env.LLM_ENABLED === 'true',
@@ -166,12 +192,6 @@ export const config = {
 function getEnvNumber(key: string, defaultVal: number): number {
   const val = process.env[key];
   return val ? parseFloat(val) : defaultVal;
-}
-
-function getEnvBoolean(key: string, defaultVal: boolean): boolean {
-  const val = process.env[key];
-  if (!val) return defaultVal;
-  return val.toLowerCase() === 'true' || val === '1';
 }
 
 export function loadScalperConfig(): ScalperConfig {
