@@ -19,11 +19,14 @@ async function testParadexConnection() {
   try {
     // 1. Create client
     console.log('📦 Creating Paradex client...');
+    const env = (process.env.PARADEX_ENVIRONMENT || 'prod') as 'testnet' | 'prod';
+    const apiBaseUrl = `https://api.${env}.paradex.trade`;
+
     const client = new ParadexClient({
       enabled: true,
-      environment: (process.env.PARADEX_ENVIRONMENT || 'testnet') as 'testnet' | 'prod',
+      environment: env,
       privateKey: process.env.PARADEX_PRIVATE_KEY || '',
-      apiBaseUrl: process.env.PARADEX_API_BASE_URL || 'https://api.testnet.paradex.trade',
+      apiBaseUrl: process.env.PARADEX_API_BASE_URL || apiBaseUrl,
     });
 
     // 2. Initialize

@@ -18,6 +18,27 @@ import type {
   ParadexPosition,
 } from '../../types';
 
+// Starknet typed data for Paradex auth
+interface ParadexAuthTypedData {
+  types: {
+    StarkNetDomain: Array<{ name: string; type: string }>;
+    Request: Array<{ name: string; type: string }>;
+  };
+  primaryType: string;
+  domain: {
+    name: string;
+    chainId: string;
+    version: string;
+  };
+  message: {
+    method: string;
+    path: string;
+    body: string;
+    timestamp: string;
+    expiration: string;
+  };
+}
+
 // Paradex API response formats
 interface ParadexApiResponse<T> {
   results?: T[];
@@ -44,6 +65,9 @@ export class ParadexClient {
   private paradexConfig: ParadexConfig;
   private marketsCache: Map<string, ParadexMarket> = new Map();
   private lastMarketsFetch: number = 0;
+  private jwtToken: string | null = null;
+  private jwtExpiry: number = 0;
+  private ethereumAddress: string = '';
 
   constructor(paradexConfig?: Partial<ParadexConfig>) {
     this.paradexConfig = {
@@ -73,6 +97,7 @@ export class ParadexClient {
 
       // Create wallet from private key
       const wallet = new ethers.Wallet(this.paradexConfig.privateKey);
+      this.ethereumAddress = wallet.address;
       const signer = Paradex.Signer.fromEthers(wallet);
 
       // Create Paradex client
@@ -83,7 +108,11 @@ export class ParadexClient {
 
       executionLogger.info({
         account: this.client.getAddress(),
+        ethereumAddress: this.ethereumAddress,
       }, 'Paradex client initialized successfully');
+
+      // Authenticate to get JWT token (auto-onboards if needed)
+      await this.authenticate();
 
       // Load markets
       await this.loadMarkets();
@@ -101,6 +130,197 @@ export class ParadexClient {
   private ensureInitialized(): void {
     if (!this.client) {
       throw new Error('Paradex client not initialized. Call initialize() first.');
+    }
+  }
+
+  /**
+   * Onboard the account to Paradex (register the StarkNet account)
+   */
+  private async onboard(): Promise<void> {
+    this.ensureInitialized();
+
+    const { ec, typedData: starkTypedData, shortString } = await import('starknet');
+    // Use Paradex chain ID and encode it (matching Paradex code samples exactly)
+    const chainId = shortString.encodeShortString(this.config!.paradexChainId);
+    const account = (this.client as any).account;
+
+    // Build onboarding typed data (exact format from Paradex code samples)
+    const onboardingTypedData = {
+      types: {
+        StarkNetDomain: [
+          { name: 'name', type: 'felt' },
+          { name: 'chainId', type: 'felt' },
+          { name: 'version', type: 'felt' },
+        ],
+        Constant: [{ name: 'action', type: 'felt' }],
+      },
+      primaryType: 'Constant',
+      domain: {
+        name: 'Paradex',
+        chainId: chainId,
+        version: '1',
+      },
+      message: {
+        action: 'Onboarding',
+      },
+    };
+
+    // Get private key from the account's signer (stored as 'pk' in StarkNet.js)
+    const privateKey = account.signer?.pk || account.signer?.privateKey || account.privateKey;
+    if (!privateKey) {
+      throw new Error('Cannot get StarkNet private key for onboarding');
+    }
+
+    // Get public key from private key
+    const publicKey = ec.starkCurve.getStarkKey(privateKey);
+    const starknetAddress = this.client!.getAddress();
+
+    // Sign using direct starkCurve signing (matching Paradex code samples exactly)
+    const msgHash = starkTypedData.getMessageHash(onboardingTypedData, starknetAddress);
+    const { r, s } = ec.starkCurve.sign(msgHash, privateKey);
+    const signatureStr = JSON.stringify([r.toString(), s.toString()]);
+
+    // Use milliseconds like their code does
+    const timestamp = Date.now();
+
+    executionLogger.debug({ publicKey, starknetAddress }, 'Onboarding with credentials');
+
+    // Make onboarding request
+    const response = await fetch(`${this.paradexConfig.apiBaseUrl}/v1/onboarding`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'PARADEX-ETHEREUM-ACCOUNT': this.ethereumAddress,
+        'PARADEX-STARKNET-ACCOUNT': starknetAddress,
+        'PARADEX-STARKNET-SIGNATURE': signatureStr,
+        'PARADEX-TIMESTAMP': timestamp.toString(),
+      },
+      body: JSON.stringify({
+        public_key: publicKey,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+
+      // Provide helpful error message for insufficient balance
+      if (errorBody.includes('INSUFFICIENT_MIN_CHAIN_BALANCE')) {
+        throw new Error(
+          `Paradex onboarding requires your Ethereum wallet (${this.ethereumAddress}) to have at least 0.001 ETH or 5 USDC ` +
+          `on Ethereum, Arbitrum, or Base mainnet. This is a one-time requirement to prevent spam account creation.`
+        );
+      }
+
+      throw new Error(`Onboarding failed: ${response.status} ${errorBody}`);
+    }
+
+    executionLogger.info('Paradex onboarding successful');
+  }
+
+  /**
+   * Authenticate and get JWT token
+   */
+  private async authenticate(): Promise<void> {
+    this.ensureInitialized();
+
+    try {
+      const { ec, typedData: starkTypedData, shortString } = await import('starknet');
+
+      // Get current timestamp and expiry (7 days from now, matching Paradex samples)
+      const now = Math.floor(Date.now() / 1000);
+      const expiry = now + 7 * 24 * 60 * 60; // 7 days
+
+      // Build the typed data for signing (use Paradex chain ID, encoded)
+      const chainId = shortString.encodeShortString(this.config!.paradexChainId);
+      const typedData = {
+        types: {
+          StarkNetDomain: [
+            { name: 'name', type: 'felt' },
+            { name: 'chainId', type: 'felt' },
+            { name: 'version', type: 'felt' },
+          ],
+          Request: [
+            { name: 'method', type: 'felt' },
+            { name: 'path', type: 'felt' },
+            { name: 'body', type: 'felt' },
+            { name: 'timestamp', type: 'felt' },
+            { name: 'expiration', type: 'felt' },
+          ],
+        },
+        primaryType: 'Request',
+        domain: {
+          name: 'Paradex',
+          chainId: chainId,
+          version: '1',
+        },
+        message: {
+          method: 'POST',
+          path: '/v1/auth',
+          body: '',
+          timestamp: now,
+          expiration: expiry,
+        },
+      };
+
+      // Get the account and private key from the SDK client (stored as 'pk' in StarkNet.js)
+      const account = (this.client as any).account;
+      const privateKey = account.signer?.pk || account.signer?.privateKey || account.privateKey;
+      if (!privateKey) {
+        throw new Error('Cannot get StarkNet private key for authentication');
+      }
+
+      const starknetAddress = this.client!.getAddress();
+
+      // Sign using direct starkCurve signing (matching Paradex code samples exactly)
+      const msgHash = starkTypedData.getMessageHash(typedData, starknetAddress);
+      const { r, s } = ec.starkCurve.sign(msgHash, privateKey);
+      const signatureStr = JSON.stringify([r.toString(), s.toString()]);
+
+      // Make auth request
+      const response = await fetch(`${this.paradexConfig.apiBaseUrl}/v1/auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'PARADEX-STARKNET-ACCOUNT': starknetAddress,
+          'PARADEX-STARKNET-SIGNATURE': signatureStr,
+          'PARADEX-TIMESTAMP': now.toString(),
+          'PARADEX-SIGNATURE-EXPIRATION': expiry.toString(),
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+
+        // Check if user needs to be onboarded first - auto-onboard
+        if (response.status === 400 && errorBody.includes('NOT_ONBOARDED')) {
+          executionLogger.info('Account not onboarded, performing auto-onboarding...');
+          await this.onboard();
+          // Retry authentication after onboarding
+          return this.authenticate();
+        }
+
+        throw new Error(`Authentication failed: ${response.status} ${errorBody}`);
+      }
+
+      const data = await response.json() as { jwt_token: string };
+      this.jwtToken = data.jwt_token;
+      this.jwtExpiry = expiry * 1000; // Convert to milliseconds
+
+      executionLogger.info('Paradex JWT authentication successful');
+    } catch (error: any) {
+      executionLogger.error({ error: error.message }, 'Paradex authentication failed');
+      throw error;
+    }
+  }
+
+  /**
+   * Ensure JWT token is valid, refresh if needed
+   */
+  private async ensureAuthenticated(): Promise<void> {
+    // Refresh JWT if expired or expiring within 1 minute
+    if (!this.jwtToken || Date.now() > this.jwtExpiry - 60000) {
+      await this.authenticate();
     }
   }
 
@@ -527,13 +747,19 @@ export class ParadexClient {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
+        // Ensure we have a valid JWT for authenticated requests
+        if (authenticated) {
+          await this.ensureAuthenticated();
+        }
+
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         };
 
-        // For authenticated requests, we'll use the Paradex SDK's built-in auth
-        // For now, we'll use plain fetch for public endpoints
-        // and rely on the SDK for private endpoints
+        // Add JWT token for authenticated requests
+        if (authenticated && this.jwtToken) {
+          headers['Authorization'] = `Bearer ${this.jwtToken}`;
+        }
 
         const options: RequestInit = {
           method,
@@ -554,7 +780,7 @@ export class ParadexClient {
         return response.json() as Promise<T>;
       } catch (error: any) {
         const isLastAttempt = attempt === retries;
-        
+
         if (isLastAttempt) {
           executionLogger.error({
             method,

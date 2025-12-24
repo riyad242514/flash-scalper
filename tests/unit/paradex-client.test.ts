@@ -2,11 +2,26 @@
  * Unit Tests for Paradex Client
  */
 
-import { ParadexClient } from '../../src/services/execution/paradex-client';
-
-// Mock the dependencies
-jest.mock('@paradex/sdk');
-jest.mock('ethers');
+// Mock the dependencies - MUST be before imports
+jest.mock('@paradex/sdk', () => ({
+  ParadexClient: jest.fn(),
+  Config: {
+    fetch: jest.fn().mockResolvedValue({}),
+  },
+  Client: {
+    fromEthSigner: jest.fn().mockResolvedValue({
+      getAddress: jest.fn().mockReturnValue('0xtest'),
+    }),
+  },
+  Signer: {
+    fromEthers: jest.fn(),
+  },
+}));
+jest.mock('ethers', () => ({
+  ethers: {
+    Wallet: jest.fn().mockImplementation(() => ({})),
+  },
+}));
 jest.mock('../../src/config', () => ({
   config: {
     paradex: {
@@ -24,6 +39,8 @@ jest.mock('../../src/utils/metrics', () => ({
   exchangeLatency: { observe: jest.fn() },
   exchangeErrors: { inc: jest.fn() },
 }));
+
+import { ParadexClient } from '../../src/services/execution/paradex-client';
 
 describe('ParadexClient', () => {
   let client: ParadexClient;

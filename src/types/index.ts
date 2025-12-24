@@ -126,12 +126,95 @@ export interface ScalperConfig {
   bounceWilliamsThreshold: number;
   bounceMinGreenCandles: number;
   bounceBonusPoints: number;
+
+  // Polymarket Integration
+  polymarket?: {
+    enabled: boolean;
+    privateKey: string;
+    apiUrl: string;
+    chainId: number;
+    proxyAddress?: string;
+    signatureType?: number;
+    defaultBetSizePercent: number;
+    minConfidenceForBet: number;
+    maxBetSizeUSD: number;
+    minBetSizeUSD: number;
+    maxConcurrentBets: number;
+    windowMinutes: number;
+    targetSymbol?: string;
+    strategy?: 'fade-hype' | 'boring-grinders' | 'edge-based' | 'market-making';
+    minEdge?: number;
+    kellyFraction?: number;
+    maxPosition?: number;
+    minConfidence?: number;
+  };
 }
 
 export interface CoinConfig {
   symbol: string;
   ivishx: string; // Coin identifier (e.g., 'bitcoin', 'ethereum') - metadata only, IVISHX API not implemented
   boost: number; // Confidence boost multiplier for this coin
+}
+
+// =============================================================================
+// POLYMARKET TYPES
+// =============================================================================
+
+export interface PolymarketBet {
+  id: string;
+  marketId: string;
+  signalId?: string;
+  outcome: 'UP' | 'DOWN';
+  outcomeId?: string; // Token ID for the outcome
+  amount: number;
+  odds: number;
+  placedAt: number;
+  resolvedAt?: number;
+  result?: 'WIN' | 'LOSS' | 'PENDING';
+  pnl?: number;
+  orderId?: string;
+  signal?: Signal; // Store signal for reference
+}
+
+export interface PolymarketMarket {
+  id: string;
+  question: string;
+  slug: string;
+  endDate: string;
+  liquidity: number;
+  volume24h: number;
+  outcomes: Array<{
+    id: string;
+    name: string;
+    price: number;
+    volume: number;
+    lastPrice: number;
+  }>;
+  windowStart?: number; // For 15-min markets
+  windowEnd?: number;   // For 15-min markets
+}
+
+export interface PolymarketMarketOdds {
+  marketId: string;
+  upOutcomeId: string;
+  downOutcomeId: string;
+  upOdds: number;
+  downOdds: number;
+  timestamp: number;
+}
+
+export interface BTC15MinMarket {
+  marketId: string;
+  question: string;
+  conditionId?: string;
+  endDate: Date;
+  upPrice: number;      // Price of "Up" outcome (0-1)
+  downPrice: number;    // Price of "Down" outcome (0-1)
+  upTokenId: string;    // CLOB token ID for "Up" outcome
+  downTokenId: string;  // CLOB token ID for "Down" outcome
+  liquidity: number;
+  volume24h?: number;
+  negRisk?: boolean;
 }
 
 // =============================================================================
@@ -228,6 +311,9 @@ export interface Signal {
     s1: number;
     s2: number;
   };
+  // Benford's Law analysis results
+  benfordHealth?: number;
+  benfordRiskMultiplier?: number;
 }
 
 export interface SignalAnalysis {

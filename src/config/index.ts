@@ -305,6 +305,29 @@ export function loadScalperConfig(): ScalperConfig {
   // Divergence Detection
   divergenceDetectionEnabled: getEnvBoolean('SCALPER_DIVERGENCE_ENABLED', true),
   divergenceBonusPoints: getEnvNumber('SCALPER_DIVERGENCE_BONUS', 25),
+    
+    // Polymarket Integration
+    polymarket: {
+      enabled: getEnvBoolean('SCALPER_POLYMARKET_ENABLED', false),
+      privateKey: process.env.POLYMARKET_PRIVATE_KEY || '',
+      apiUrl: process.env.POLYMARKET_API_URL || 'https://clob.polymarket.com',
+      chainId: getEnvNumber('POLYMARKET_CHAIN_ID', 137), // Polygon mainnet
+      proxyAddress: process.env.POLYMARKET_PROXY_ADDRESS,
+      signatureType: process.env.POLYMARKET_SIGNATURE_TYPE ? getEnvNumber('POLYMARKET_SIGNATURE_TYPE', 0) : undefined,
+      defaultBetSizePercent: getEnvNumber('POLYMARKET_BET_SIZE_PERCENT', 2), // 2% of equity
+      minConfidenceForBet: getEnvNumber('POLYMARKET_MIN_CONFIDENCE', 70), // 70% minimum confidence
+      maxBetSizeUSD: getEnvNumber('POLYMARKET_MAX_BET_SIZE_USD', 100), // Max $100 per bet
+      minBetSizeUSD: getEnvNumber('POLYMARKET_MIN_BET_SIZE_USD', 1), // Min $1 per bet
+      maxConcurrentBets: getEnvNumber('POLYMARKET_MAX_CONCURRENT_BETS', 5),
+      windowMinutes: getEnvNumber('POLYMARKET_WINDOW_MINUTES', 15), // 15-minute markets
+      targetSymbol: process.env.POLYMARKET_TARGET_SYMBOL || 'BTCUSDT', // Default to BTCUSDT
+      // Strategy configuration
+      strategy: (process.env.POLYMARKET_STRATEGY as 'fade-hype' | 'boring-grinders' | 'edge-based' | 'market-making') || 'edge-based',
+      minEdge: getEnvNumber('POLYMARKET_MIN_EDGE', 0.02), // 2% minimum edge
+      kellyFraction: getEnvNumber('POLYMARKET_KELLY_FRACTION', 0.25), // Quarter Kelly for safety
+      maxPosition: getEnvNumber('POLYMARKET_MAX_POSITION', 10), // $10 max position per bet
+      minConfidence: getEnvNumber('POLYMARKET_MIN_CONFIDENCE_SIGNAL', 0.52), // 52% minimum confidence for signals
+    },
   };
 }
 

@@ -1,20 +1,47 @@
 /**
  * Integration Tests for Paradex Client
- * 
+ *
  * These tests interact with the real Paradex testnet API.
- * 
+ *
  * Requirements:
  * - PARADEX_PRIVATE_KEY must be set in environment
  * - Testnet account must have some USDC deposited
- * 
+ *
  * Run with: npm test -- paradex-integration.test.ts
  * Or skip: npm test -- --testPathIgnorePatterns=integration
  */
 
-import { ParadexClient } from '../../src/services/execution/paradex-client';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+
+// Conditionally mock when no real credentials
+const HAS_CREDENTIALS = !!process.env.PARADEX_PRIVATE_KEY;
+
+if (!HAS_CREDENTIALS) {
+  // Mock the SDK when not doing real integration tests
+  jest.mock('@paradex/sdk', () => ({
+    ParadexClient: jest.fn(),
+    Config: {
+      fetch: jest.fn().mockResolvedValue({}),
+    },
+    Client: {
+      fromEthSigner: jest.fn().mockResolvedValue({
+        getAddress: jest.fn().mockReturnValue('0xtest'),
+      }),
+    },
+    Signer: {
+      fromEthers: jest.fn(),
+    },
+  }));
+  jest.mock('ethers', () => ({
+    ethers: {
+      Wallet: jest.fn().mockImplementation(() => ({})),
+    },
+  }));
+}
+
+import { ParadexClient } from '../../src/services/execution/paradex-client';
 
 // Skip these tests if no private key is configured
 const SKIP_INTEGRATION_TESTS = !process.env.PARADEX_PRIVATE_KEY;
