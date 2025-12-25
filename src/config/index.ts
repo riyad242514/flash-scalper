@@ -11,6 +11,16 @@ import type { ScalperConfig, CoinConfig } from '../types';
 dotenv.config();
 
 // =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+function getEnvBoolean(key: string, defaultVal: boolean): boolean {
+  const val = process.env[key];
+  if (!val) return defaultVal;
+  return val.toLowerCase() === 'true' || val === '1';
+}
+
+// =============================================================================
 // ENVIRONMENT SCHEMA VALIDATION
 // =============================================================================
 
@@ -27,10 +37,17 @@ const envSchema = z.object({
   JWT_SECRET: z.string().default('change-this-in-production'),
   JWT_EXPIRES_IN: z.string().default('24h'),
 
-  // Exchange
+  // Exchange - Aster
   ASTER_API_KEY: z.string().optional(),
   ASTER_SECRET_KEY: z.string().optional(),
   ASTER_BASE_URL: z.string().default('https://fapi.asterdex.com'),
+
+  // Exchange - Paradex
+  PARADEX_ENABLED: z.string().default('false'),
+  PARADEX_ENVIRONMENT: z.string().default('testnet'),
+  PARADEX_PRIVATE_KEY: z.string().optional(),
+  PARADEX_API_BASE_URL: z.string().default('https://api.testnet.paradex.trade'),
+  PARADEX_WS_BASE_URL: z.string().default('wss://ws.api.testnet.paradex.trade'),
 
   // LLM
   OPENROUTER_API_KEY: z.string().optional(),
@@ -104,6 +121,15 @@ export const config = {
     baseUrl: env.ASTER_BASE_URL,
   },
 
+  // Paradex
+  paradex: {
+    enabled: getEnvBoolean('PARADEX_ENABLED', false),
+    environment: (process.env.PARADEX_ENVIRONMENT || 'testnet') as 'testnet' | 'prod',
+    privateKey: process.env.PARADEX_PRIVATE_KEY || '',
+    apiBaseUrl: process.env.PARADEX_API_BASE_URL || 'https://api.testnet.paradex.trade',
+    wsBaseUrl: process.env.PARADEX_WS_BASE_URL || 'wss://ws.api.testnet.paradex.trade',
+  },
+
   // LLM
   llm: {
     enabled: env.LLM_ENABLED === 'true',
@@ -166,12 +192,6 @@ export const config = {
 function getEnvNumber(key: string, defaultVal: number): number {
   const val = process.env[key];
   return val ? parseFloat(val) : defaultVal;
-}
-
-function getEnvBoolean(key: string, defaultVal: boolean): boolean {
-  const val = process.env[key];
-  if (!val) return defaultVal;
-  return val.toLowerCase() === 'true' || val === '1';
 }
 
 export function loadScalperConfig(): ScalperConfig {
@@ -285,6 +305,29 @@ export function loadScalperConfig(): ScalperConfig {
   // Divergence Detection
   divergenceDetectionEnabled: getEnvBoolean('SCALPER_DIVERGENCE_ENABLED', true),
   divergenceBonusPoints: getEnvNumber('SCALPER_DIVERGENCE_BONUS', 25),
+    
+    // Polymarket Integration
+    polymarket: {
+      enabled: getEnvBoolean('SCALPER_POLYMARKET_ENABLED', false),
+      privateKey: process.env.POLYMARKET_PRIVATE_KEY || '',
+      apiUrl: process.env.POLYMARKET_API_URL || 'https://clob.polymarket.com',
+      chainId: getEnvNumber('POLYMARKET_CHAIN_ID', 137), // Polygon mainnet
+      proxyAddress: process.env.POLYMARKET_PROXY_ADDRESS,
+      signatureType: process.env.POLYMARKET_SIGNATURE_TYPE ? getEnvNumber('POLYMARKET_SIGNATURE_TYPE', 0) : undefined,
+      defaultBetSizePercent: getEnvNumber('POLYMARKET_BET_SIZE_PERCENT', 2), // 2% of equity
+      minConfidenceForBet: getEnvNumber('POLYMARKET_MIN_CONFIDENCE', 70), // 70% minimum confidence
+      maxBetSizeUSD: getEnvNumber('POLYMARKET_MAX_BET_SIZE_USD', 100), // Max $100 per bet
+      minBetSizeUSD: getEnvNumber('POLYMARKET_MIN_BET_SIZE_USD', 1), // Min $1 per bet
+      maxConcurrentBets: getEnvNumber('POLYMARKET_MAX_CONCURRENT_BETS', 5),
+      windowMinutes: getEnvNumber('POLYMARKET_WINDOW_MINUTES', 15), // 15-minute markets
+      targetSymbol: process.env.POLYMARKET_TARGET_SYMBOL || 'BTCUSDT', // Default to BTCUSDT
+      // Strategy configuration
+      strategy: (process.env.POLYMARKET_STRATEGY as 'fade-hype' | 'boring-grinders' | 'edge-based' | 'market-making') || 'edge-based',
+      minEdge: getEnvNumber('POLYMARKET_MIN_EDGE', 0.02), // 2% minimum edge
+      kellyFraction: getEnvNumber('POLYMARKET_KELLY_FRACTION', 0.25), // Quarter Kelly for safety
+      maxPosition: getEnvNumber('POLYMARKET_MAX_POSITION', 10), // $10 max position per bet
+      minConfidence: getEnvNumber('POLYMARKET_MIN_CONFIDENCE_SIGNAL', 0.52), // 52% minimum confidence for signals
+    },
   };
 }
 
