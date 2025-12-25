@@ -135,7 +135,7 @@ export class MultiExchangePositionManager {
     position: UnifiedPosition,
     config: ScalperConfig
   ): Promise<PositionMonitorResult> {
-    const { unrealizedROE, openedAt, currentPrice, entryPrice } = position;
+    const { unrealizedROE, openedAt, currentPrice } = position;
 
     // Check stop-loss
     if (unrealizedROE <= config.stopLossROE) {
