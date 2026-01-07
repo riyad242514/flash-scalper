@@ -9,14 +9,13 @@ import {
   QUEUE_NAMES,
   getRedisConnection,
   PositionCheckJobData,
-  addClosePositionJob,
 } from '../queues';
 import { config, loadScalperConfig } from '../config';
 import { AsterClient } from '../services/execution';
 import { updatePosition, checkLLMExit } from '../services/position';
 import { calculateAllIndicators, parseKlines } from '../services/signal';
 import { workerLogger, logPosition } from '../utils/logger';
-import { jobsProcessed, jobDuration, updateAgentMetrics } from '../utils/metrics';
+import { jobsProcessed, jobDuration } from '../utils/metrics';
 import type { Position } from '../types';
 
 // =============================================================================
@@ -85,7 +84,7 @@ async function deletePosition(agentId: string, symbol: string): Promise<void> {
 
 async function processPositionCheck(job: Job<PositionCheckJobData>): Promise<void> {
   const startTime = Date.now();
-  const { agentId, userId, positionId, symbol } = job.data;
+  const { agentId, symbol } = job.data;
 
   try {
     // Get position from Redis

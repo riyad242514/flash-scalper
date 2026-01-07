@@ -3,7 +3,7 @@
  * Prevents exceeding API rate limits
  */
 
-import { logger } from './logger';
+// Rate limiter implementation
 
 // =============================================================================
 // TYPES
@@ -71,7 +71,8 @@ export class RateLimiter {
    */
   async acquireToken(waitMs: number = 0): Promise<void> {
     const startTime = Date.now();
-    
+
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       this.refill();
       

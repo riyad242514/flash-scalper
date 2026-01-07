@@ -8,9 +8,8 @@ import {
   QUEUE_NAMES,
   getRedisConnection,
   SignalScanJobData,
-  addExecuteOrderJob,
 } from '../queues';
-import { config, loadScalperConfig, loadCoinList } from '../config';
+import { loadScalperConfig, loadCoinList } from '../config';
 import { generateSignal, getQualifyingSignals } from '../services/signal';
 import { AsterClient } from '../services/execution';
 import { workerLogger } from '../utils/logger';
@@ -52,7 +51,7 @@ function getAgentState(agentId: string): AgentSignalState {
 
 async function processSignalScan(job: Job<SignalScanJobData>): Promise<void> {
   const startTime = Date.now();
-  const { agentId, userId, symbols, configOverrides } = job.data;
+  const { agentId, symbols, configOverrides } = job.data;
 
   workerLogger.info({ agentId, symbolCount: symbols.length }, 'Starting signal scan');
 
