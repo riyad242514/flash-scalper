@@ -8,13 +8,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { config, loadScalperConfig, loadCoinList } from '../config';
 import { AsterClient } from '../services/execution';
 import { generateSignal, getQualifyingSignals } from '../services/signal';
-import { executeOrder, closePosition, calculateExposure } from '../services/execution';
-import { updatePosition, syncPositions, checkDailyLimits, checkDailyReset, monitorPositions } from '../services/position';
+import { executeOrder, calculateExposure } from '../services/execution';
+import { syncPositions, checkDailyLimits, checkDailyReset, monitorPositions } from '../services/position';
 import { logger, logTick } from '../utils/logger';
 import { updateAgentMetrics, agentStatus } from '../utils/metrics';
 import type { Position, AgentState, ScalperConfig, CoinConfig } from '../types';
 // import { ArtifactManager } from '../services/artifacts/artifact-manager'; // TODO: Re-enable when artifact manager is implemented
-import { loadArtifactConfig } from '../config';
 import { MemoryManager } from '../services/memory/memory-manager';
 import { calculateAllIndicators } from '../services/signal/technical-analysis';
 import { parseKlines } from '../services/signal/technical-analysis';
