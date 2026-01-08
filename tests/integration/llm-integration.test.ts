@@ -3,7 +3,7 @@
  * Tests end-to-end LLM integration with retry, circuit breaker, and rate limiting
  */
 
-import { analyzeEntry, analyzeExit } from '../../src/services/signal/llm-analyzer';
+import { analyzeEntry, analyzeExit, resetCircuitBreakers } from '../../src/services/signal/llm-analyzer';
 import type { TechnicalIndicators, Position, Kline } from '../../src/types';
 
 // Mock fetch
@@ -44,6 +44,12 @@ jest.mock('../../src/utils/logger', () => ({
     debug: jest.fn(),
     warn: jest.fn(),
     info: jest.fn(),
+  },
+  logger: {
+    debug: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
   },
 }));
 
@@ -127,6 +133,7 @@ describe('LLM Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (global.fetch as jest.Mock).mockClear();
+    resetCircuitBreakers(); // Reset circuit breaker state between tests
   });
 
   describe('End-to-end entry analysis', () => {
