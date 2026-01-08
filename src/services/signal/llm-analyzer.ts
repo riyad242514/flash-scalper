@@ -82,6 +82,14 @@ function getRateLimiter(model: string) {
   });
 }
 
+/**
+ * Reset all circuit breakers (for testing)
+ */
+export function resetCircuitBreakers(): void {
+  circuitBreakers.forEach(cb => cb.reset());
+  circuitBreakers.clear();
+}
+
 // =============================================================================
 // ENTRY ANALYSIS
 // =============================================================================
