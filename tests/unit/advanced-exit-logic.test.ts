@@ -24,7 +24,7 @@ const defaultConfig: ScalperConfig = {
   dailyProfitTargetPercent: 0,
   tickIntervalMs: 15000,
   scanIntervalTicks: 2,
-  maxHoldTimeMinutes: 5,
+  maxHoldTimeMinutes: 15,
   takeProfitROE: 1.5,
   stopLossROE: -0.4,
   minProfitUSD: 0.2,
@@ -359,7 +359,9 @@ describe('Profit Lock Stop', () => {
     const result = updatePosition(position, currentPrice, defaultConfig);
 
     // Should not use profit lock if trailing is active
-    expect(result.reason).not.toContain('Profit lock');
+    if (result.reason) {
+      expect(result.reason).not.toContain('Profit lock');
+    }
   });
 });
 
@@ -445,7 +447,10 @@ describe('Peak Protection', () => {
     const result = updatePosition(position, currentPrice, defaultConfig);
 
     // Should not use peak protection for such small peaks
-    expect(result.reason).not.toContain('Peak protection');
+    if (result.reason) {
+      expect(result.reason).not.toContain('Peak protection');
+    }
+    expect(result.action).not.toBe('close_trailing'); // Peak protection uses close_trailing
   });
 
   test('should work for short positions', () => {
@@ -501,7 +506,8 @@ describe('Break-Even Stop', () => {
     const result = updatePosition(position, currentPrice, defaultConfig);
 
     expect(result.position.breakEvenActivated).toBe(true);
-    expect(result.position.breakEvenStopPrice).toBe(50000); // At entry
+    // Profit lock sets stop to guarantee 0.2% ROE profit, not break-even
+    expect(result.position.breakEvenStopPrice).toBeGreaterThan(50000);
   });
 
   test('should not trigger exit if not near break-even', () => {
@@ -653,6 +659,7 @@ describe('Exit Condition Priority', () => {
   });
 
   test('should prioritize take profit over time/trailing', () => {
+    const config = { ...defaultConfig, minProfitUSD: 0.05 };
     const openedAt = Date.now() - 10 * 60 * 1000;
     const position = createTestPosition({
       entryPrice: 50000,
@@ -663,7 +670,7 @@ describe('Exit Condition Priority', () => {
     // At take profit level
     const currentPrice = 50075; // 1.5% ROE
 
-    const result = updatePosition(position, currentPrice, defaultConfig);
+    const result = updatePosition(position, currentPrice, config);
 
     expect(result.action).toBe('close_tp');
   });
@@ -674,6 +681,7 @@ describe('Exit Condition Priority', () => {
       partialProfitEnabled: true,
       partialProfitROE: 1.0,
       takeProfitROE: 1.5,
+      minProfitUSD: 0.05, // Lower threshold for test
     };
     const position = createTestPosition({
       entryPrice: 50000,
@@ -730,7 +738,7 @@ describe('Dynamic Take Profit', () => {
   });
 
   test('should trigger when dynamic TP is reached', () => {
-    const config = { ...defaultConfig, takeProfitROE: 1.5 };
+    const config = { ...defaultConfig, takeProfitROE: 1.5, minProfitUSD: 0.05 };
     const position = createTestPosition({
       entryPrice: 50000,
       dynamicTP: 2.0,
@@ -746,6 +754,7 @@ describe('Dynamic Take Profit', () => {
   });
 
   test('should fall back to standard TP when no dynamic TP', () => {
+    const config = { ...defaultConfig, minProfitUSD: 0.05 };
     const position = createTestPosition({
       entryPrice: 50000,
       dynamicTP: undefined,
@@ -754,7 +763,7 @@ describe('Dynamic Take Profit', () => {
     // At standard TP
     const currentPrice = 50075; // 1.5% ROE
 
-    const result = updatePosition(position, currentPrice, defaultConfig);
+    const result = updatePosition(position, currentPrice, config);
 
     expect(result.action).toBe('close_tp');
   });

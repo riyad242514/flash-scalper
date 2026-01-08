@@ -3,7 +3,7 @@
  * Tests system behavior under LLM failures
  */
 
-import { analyzeEntry } from '../../src/services/signal/llm-analyzer';
+import { analyzeEntry, resetCircuitBreakers } from '../../src/services/signal/llm-analyzer';
 import type { TechnicalIndicators, Kline } from '../../src/types';
 
 // Mock fetch
@@ -44,6 +44,12 @@ jest.mock('../../src/utils/logger', () => ({
     debug: jest.fn(),
     warn: jest.fn(),
     info: jest.fn(),
+  },
+  logger: {
+    debug: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
   },
 }));
 
@@ -109,6 +115,7 @@ describe('Live Trading Resilience', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (global.fetch as jest.Mock).mockClear();
+    resetCircuitBreakers(); // Reset circuit breaker state between tests
   });
 
   describe('System continues trading with LLM failures', () => {
